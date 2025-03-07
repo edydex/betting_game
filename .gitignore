@@ -1,0 +1,43 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Dependencies
+node_modules/
+
+# Coverage directory used by tools like istanbul
+coverage
+
+# nyc test coverage
+.nyc_output
+
+# Dependency directories
+jspm_packages/
+
+# dotenv environment variables file
+.env
+.env.test
+
+# Local Azure configuration
+.azure
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Deployment files
+.deployment
+
+# IDE - VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# OS related files
+.DS_Store
+Thumbs.db

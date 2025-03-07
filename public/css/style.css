@@ -1,0 +1,204 @@
+/* public/css/style.css */
+
+body {
+  background-color: #f8f9fa;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+.table-responsive {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Desktop-specific styling */
+@media (min-width: 769px) {
+  .row {
+    display: flex;
+  }
+  
+  .col-md-7 {
+    flex: 0 0 auto;
+    width: 58.333333%;
+  }
+  
+  .col-md-5 {
+    flex: 0 0 auto;
+    width: 41.666667%;
+  }
+}
+
+.card {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  overflow: hidden;
+  border: none;
+  margin-bottom: 20px;
+}
+
+.card-header {
+  padding: 15px 20px;
+}
+
+.btn {
+  border-radius: 5px;
+  padding: 10px 20px;
+  font-weight: 500;
+}
+
+.table {
+  margin-bottom: 0;
+}
+
+.badge {
+  font-size: 0.8rem;
+  padding: 6px 10px;
+  border-radius: 4px;
+}
+
+.list-group-item {
+  padding: 12px 20px;
+}
+
+/* Game-specific styles */
+#game-status-container {
+  text-align: center;
+}
+
+#game-status {
+  font-weight: 600;
+}
+
+#action-area {
+  min-height: 200px;
+}
+
+/* Animations */
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.bg-success {
+  transition: background-color 0.3s;
+}
+
+.btn-success:hover, .btn-warning:hover, .btn-primary:hover {
+  animation: pulse 0.5s;
+}
+
+/* Fool's Prize specific styling */
+.card-header.bg-primary {
+  background: linear-gradient(to right, #4e73df, #224abe) !important;
+}
+
+.card-header.bg-success {
+  background: linear-gradient(to right, #1cc88a, #169a6f) !important;
+}
+
+.card-header.bg-warning {
+  background: linear-gradient(to right, #f6c23e, #dda20a) !important;
+}
+
+.card-header.bg-info {
+  background: linear-gradient(to right, #36b9cc, #258391) !important;
+}
+
+.card-header.bg-secondary {
+  background: linear-gradient(to right, #858796, #60616f) !important;
+}
+
+.badge.bg-success {
+  background: #1cc88a !important;
+}
+
+.badge.bg-warning {
+  background: #f6c23e !important;
+}
+
+/* Make the game look modern */
+.form-control:focus {
+  border-color: #4e73df;
+  box-shadow: 0 0 0 0.25rem rgba(78, 115, 223, 0.25);
+}
+
+.btn-success {
+  background-color: #1cc88a;
+  border-color: #1cc88a;
+}
+
+.btn-warning {
+  background-color: #f6c23e;
+  border-color: #f6c23e;
+}
+
+.btn-primary {
+  background-color: #4e73df;
+  border-color: #4e73df;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .container {
+    padding: 10px;
+  }
+  
+  .card-body {
+    padding: 15px;
+  }
+  
+  /* Mobile-specific adjustments */
+  .row {
+    margin-left: -10px;
+    margin-right: -10px;
+  }
+  
+  .col-md-7, .col-md-5 {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  
+  h3 {
+    font-size: 1.5rem;
+  }
+  
+  .table th, .table td {
+    padding: 0.5rem;
+    font-size: 0.9rem;
+  }
+  
+  .badge {
+    font-size: 0.7rem;
+    padding: 4px 8px;
+  }
+  
+  .btn {
+    padding: 8px 15px;
+  }
+  
+  /* Stack columns on mobile */
+  .card-header {
+    padding: 10px 15px;
+  }
+}
+
+/* Even smaller screens */
+@media (max-width: 576px) {
+  .card-header.bg-primary {
+    flex-direction: column;
+    align-items: start;
+  }
+  
+  .card-header.bg-primary > div {
+    margin-top: 8px;
+  }
+  
+  h3 {
+    font-size: 1.3rem;
+  }
+  
+  .table th, .table td {
+    padding: 0.4rem;
+    font-size: 0.8rem;
+  }
+}

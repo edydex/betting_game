@@ -1,0 +1,81 @@
+<!-- views/index.ejs -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Betting Game</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="row justify-content-center mt-5">
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header bg-primary text-white">
+            <h1 class="text-center">Fool's Prize</h1>
+          </div>
+          <div class="card-body">
+            <% if (error) { %>
+              <div class="alert alert-danger mb-3"><%= error %></div>
+            <% } %>
+            
+            <div class="row">
+              <div class="col-md-6">
+                <div class="card mb-3">
+                  <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Create Game</h5>
+                  </div>
+                  <div class="card-body">
+                    <form action="/game/create" method="post">
+                      <div class="mb-3">
+                        <label for="username" class="form-label">Your Name:</label>
+                        <input type="text" class="form-control" id="username" name="username" required>
+                      </div>
+                      <button type="submit" class="btn btn-success w-100">Create Game</button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="card">
+                  <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">Join Game</h5>
+                  </div>
+                  <div class="card-body">
+                    <form action="/game/join" method="post">
+                      <div class="mb-3">
+                        <label for="joinUsername" class="form-label">Your Name:</label>
+                        <input type="text" class="form-control" id="joinUsername" name="username" required>
+                      </div>
+                      <div class="mb-3">
+                        <label for="gameId" class="form-label">Game Code:</label>
+                        <input type="text" class="form-control" id="gameId" name="gameId" required>
+                      </div>
+                      <button type="submit" class="btn btn-info w-100">Join Game</button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="mt-4">
+              <h5>Game Rules:</h5>
+              <ul>
+                <li>Each player starts with $100</li>
+                <li>There are 5 rounds in total</li>
+                <li>Win 3 rounds to win the game</li>
+                <li>The player who places the highest bet each round wins that round</li>
+                <li>Create a game and share the game code with friends to play together</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

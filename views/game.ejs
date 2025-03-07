@@ -1,0 +1,605 @@
+<!-- views/game.ejs -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fool's Prize: Room <%= game.id %></title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="row justify-content-center mt-3">
+      <div class="col-md-8">
+        <div class="card">
+          <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h3 class="mb-0">Fool's Prize: Room <%= game.id %></h3>
+            <div>
+              <span class="badge bg-info">Round: <span id="current-round"><%= game.currentRound %></span>/<%= game.totalRounds %></span>
+              <span class="ms-2 badge bg-success">Your Money: $<span id="player-money"><%= player.money %></span></span>
+            </div>
+          </div>
+          <div class="card-body">
+            <% if (error) { %>
+              <div class="alert alert-danger mb-3"><%= error %></div>
+            <% } %>
+            
+            <div id="game-status-container" class="mb-3">
+              <div class="alert alert-info">
+                Game Status: <span id="game-status"><%= game.status %></span>
+                <% if (game.status === 'waiting') { %>
+                  <div class="mt-2">Waiting for players to join. Share this code with friends: <strong><%= game.id %></strong></div>
+                <% } %>
+              </div>
+            </div>
+            
+            <div class="row">
+              <div class="col-md-7">
+                <div class="card mb-3">
+                  <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">Players</h5>
+                  </div>
+                  <div class="card-body p-0">
+                    <div class="table-responsive">
+                      <table class="table table-striped mb-0">
+                        <thead>
+                          <tr>
+                            <th>Name</th>
+                            <th>Money</th>
+                            <th>Rounds</th>
+                            <th>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody id="players-table">
+                        <% game.players.forEach(function(p) { %>
+                          <tr class="<%= p.id === player.id ? 'table-primary' : '' %>">
+                            <td><%= p.name %> <%= p.host ? '(Host)' : '' %></td>
+                            <td>$<%= p.money %></td>
+                            <td><%= p.roundsWon %></td>
+                            <td id="player-status-<%= p.id %>">
+                              <% if (game.status === 'betting') { %>
+                                <% if (game.bets[p.id] !== undefined) { %>
+                                  <span class="badge bg-success">Bet</span>
+                                <% } else { %>
+                                  <span class="badge bg-warning text-dark">...</span>
+                                <% } %>
+                              <% } else if (game.status === 'roundComplete' && game.roundWinner && game.roundWinner.id === p.id) { %>
+                                <span class="badge bg-success">Winner</span>
+                              <% } else if (game.status === 'gameComplete' && p.roundsWon >= game.roundsToWin) { %>
+                                <span class="badge bg-success">Champion</span>
+                              <% } else { %>
+                                <span class="badge bg-secondary">-</span>
+                              <% } %>
+                            </td>
+                          </tr>
+                        <% }); %>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="col-md-5">
+                <div id="action-area">
+                  <!-- Action area content will be populated by JavaScript -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Game ID and player ID constants
+      const gameId = '<%= game.id %>';
+      const playerId = '<%= player.id %>';
+      const isHost = <%= player.host %>;
+      
+      console.log('Game initialized. Game ID:', gameId, 'Player ID:', playerId, 'Is Host:', isHost);
+      
+      // Control variable for polling
+      let isPollingSuspended = false;
+      
+      // Set up polling for game state
+      setInterval(function() {
+        if (!isPollingSuspended) {
+          updateGameState();
+        }
+      }, 1000);
+      
+      // Add event listeners for the betting form
+      document.addEventListener('focusin', function(e) {
+        if (e.target.id === 'bet-amount') {
+          console.log('Bet input focused, pausing polling');
+          isPollingSuspended = true;
+        }
+      });
+      
+      document.addEventListener('click', function(e) {
+        // If clicking the bet button while polling is suspended, don't resume polling yet
+        if (e.target.closest('form#bet-form button[type="submit"]')) {
+          console.log('Bet button clicked, keeping polling paused');
+          // Don't change isPollingSuspended - keep it true
+          return;
+        }
+        
+        // Resume polling when clicking elsewhere (not on bet input or bet button)
+        if (isPollingSuspended && e.target.id !== 'bet-amount' && !e.target.closest('form#bet-form')) {
+          console.log('Clicked outside bet form, resuming polling');
+          isPollingSuspended = false;
+          // Update once when resuming
+          updateGameState();
+        }
+      });
+      
+      document.addEventListener('submit', function(e) {
+        if (e.target.id === 'bet-form') {
+          console.log('Form submitted, resuming polling');
+          isPollingSuspended = false;
+        }
+      });
+      
+      // Add event listeners to buttons
+      const startButton = document.getElementById('start-game-btn');
+      if (startButton) {
+        startButton.onclick = function(e) {
+          e.preventDefault();
+          console.log('Start game button clicked');
+          
+          // Disable button to prevent multiple clicks
+          startButton.disabled = true;
+          startButton.textContent = 'Starting...';
+          
+          // Send AJAX request to start the game
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', '/game/' + gameId + '/start', true);
+          xhr.setRequestHeader('Content-Type', 'application/json');
+          
+          xhr.onload = function() {
+            if (xhr.status === 200) {
+              console.log('Game started successfully');
+              updateGameState(); // Update UI immediately
+            } else {
+              console.error('Error starting game:', xhr.responseText);
+              alert('Error starting game. Please try again.');
+              startButton.disabled = false;
+              startButton.textContent = 'Start Game';
+            }
+          };
+          
+          xhr.onerror = function() {
+            console.error('Network error when starting game');
+            alert('Network error. Please check your connection and try again.');
+            startButton.disabled = false;
+            startButton.textContent = 'Start Game';
+          };
+          
+          xhr.send(JSON.stringify({}));
+        };
+      }
+      
+      // Set up bet form submission
+      const betForm = document.getElementById('bet-form');
+      if (betForm) {
+        betForm.onsubmit = function(e) {
+          e.preventDefault();
+          
+          const betAmount = document.getElementById('bet-amount').value;
+          
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', '/game/' + gameId + '/bet', true);
+          xhr.setRequestHeader('Content-Type', 'application/json');
+          
+          xhr.onload = function() {
+            if (xhr.status === 200) {
+              console.log('Bet placed successfully');
+              updateGameState(); // Update UI immediately
+            } else {
+              console.error('Error placing bet:', xhr.responseText);
+              alert('Error placing bet. Please try again.');
+            }
+          };
+          
+          xhr.send(JSON.stringify({ amount: betAmount }));
+        };
+      }
+      
+      // Set up next round button
+      const nextRoundButton = document.getElementById('next-round-btn');
+      if (nextRoundButton) {
+        nextRoundButton.onclick = function(e) {
+          e.preventDefault();
+          
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', '/game/' + gameId + '/nextround', true);
+          xhr.setRequestHeader('Content-Type', 'application/json');
+          
+          xhr.onload = function() {
+            if (xhr.status === 200) {
+              console.log('Next round started successfully');
+              updateGameState(); // Update UI immediately
+            } else {
+              console.error('Error starting next round:', xhr.responseText);
+              alert('Error starting next round. Please try again.');
+            }
+          };
+          
+          xhr.send(JSON.stringify({}));
+        };
+      }
+      
+      // Set up reset game button
+      const resetButton = document.getElementById('reset-game-btn');
+      if (resetButton) {
+        resetButton.onclick = function(e) {
+          e.preventDefault();
+          
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', '/game/' + gameId + '/reset', true);
+          xhr.setRequestHeader('Content-Type', 'application/json');
+          
+          xhr.onload = function() {
+            if (xhr.status === 200) {
+              console.log('Game reset successfully');
+              updateGameState(); // Update UI immediately
+            } else {
+              console.error('Error resetting game:', xhr.responseText);
+              alert('Error resetting game. Please try again.');
+            }
+          };
+          
+          xhr.send(JSON.stringify({}));
+        };
+      }
+      
+      // Function to update game state
+      function updateGameState() {
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', '/game/' + gameId + '/state', true);
+        
+        xhr.onload = function() {
+          if (xhr.status === 200) {
+            try {
+              const data = JSON.parse(xhr.responseText);
+              console.log('Game state updated:', data);
+              
+              // Update UI based on new state
+              updateUI(data);
+            } catch (e) {
+              console.error('Error parsing game state:', e);
+            }
+          } else {
+            console.error('Error fetching game state:', xhr.status);
+          }
+        };
+        
+        xhr.onerror = function() {
+          console.error('Network error when fetching game state');
+        };
+        
+        xhr.send();
+      }
+      
+      // Function to update UI based on game state
+      function updateUI(data) {
+        // Get the action area element
+        const actionAreaElem = document.getElementById('action-area');
+        
+        // Check if the bet form exists and if the input has focus
+        const betForm = document.getElementById('bet-form');
+        const betAmountInput = document.getElementById('bet-amount');
+        const betInputHasFocus = betAmountInput && document.activeElement === betAmountInput;
+        
+        // Save the current bet amount value if it exists
+        let currentBetAmount = null;
+        if (betAmountInput) {
+          currentBetAmount = betAmountInput.value;
+        }
+        
+        // Update game status
+        const gameStatusElem = document.getElementById('game-status');
+        if (gameStatusElem) {
+          gameStatusElem.textContent = formatGameStatus(data.status);
+        }
+        
+        // Update round info
+        const currentRoundElem = document.getElementById('current-round');
+        if (currentRoundElem) {
+          currentRoundElem.textContent = data.currentRound;
+        }
+        
+        // Update player's money
+        const playerMoneyElem = document.getElementById('player-money');
+        if (playerMoneyElem) {
+          const currentPlayer = data.players.find(p => p.id === playerId);
+          if (currentPlayer) {
+            playerMoneyElem.textContent = currentPlayer.money;
+          }
+        }
+        
+        // Update player table
+        const playersTableElem = document.getElementById('players-table');
+        if (playersTableElem) {
+          let html = '';
+          
+          data.players.forEach(p => {
+            const isCurrentPlayer = p.id === playerId;
+            let statusHtml = '';
+            
+            if (data.status === 'betting') {
+              if (p.hasBet) {
+                statusHtml = '<span class="badge bg-success">Bet</span>';
+              } else {
+                statusHtml = '<span class="badge bg-warning text-dark">...</span>';
+              }
+            } else if (data.status === 'roundComplete' && data.roundWinner && data.roundWinner.id === p.id) {
+              statusHtml = '<span class="badge bg-success">Winner</span>';
+            } else if (data.status === 'gameComplete' && p.roundsWon >= data.roundsToWin) {
+              statusHtml = '<span class="badge bg-success">Champion</span>';
+            } else {
+              statusHtml = '<span class="badge bg-secondary">-</span>';
+            }
+            
+            html += `
+              <tr class="${isCurrentPlayer ? 'table-primary' : ''}">
+                <td>${p.name} ${p.host ? '(Host)' : ''}</td>
+                <td>$${p.money}</td>
+                <td>${p.roundsWon}</td>
+                <td id="player-status-${p.id}">${statusHtml}</td>
+              </tr>
+            `;
+          });
+          
+          playersTableElem.innerHTML = html;
+        }
+        
+        // Skip updating the action area if we are in betting phase and the bet input has focus
+        if (data.status === 'betting' && data.isMyTurn && betForm && betInputHasFocus) {
+          console.log('Preserving bet form due to focus');
+          return; // Skip updating the action area
+        }
+        
+        // Update action area based on game state
+        if (actionAreaElem) {
+          let html = '';
+          
+          if (data.status === 'waiting' && data.amHost) {
+            // Host waiting for players
+            html = `
+              <div class="card">
+                <div class="card-header bg-success text-white">
+                  <h5 class="mb-0">Game Controls</h5>
+                </div>
+                <div class="card-body">
+                  <button id="start-game-btn" class="btn btn-success w-100 mb-2" ${data.players.length < 2 ? 'disabled' : ''}>
+                    Start Game
+                  </button>
+                  <div class="text-muted small">Need at least 2 players to start</div>
+                </div>
+              </div>
+            `;
+          } else if (data.status === 'betting' && data.isMyTurn) {
+            // My turn to bet
+            html = `
+              <div class="card">
+                <div class="card-header bg-warning text-dark">
+                  <h5 class="mb-0">Place Your Bet</h5>
+                </div>
+                <div class="card-body">
+                  <form id="bet-form">
+                    <div class="mb-3">
+                      <label for="bet-amount" class="form-label">Bet Amount ($):</label>
+                      <input type="number" class="form-control" id="bet-amount" min="0" max="${data.players.find(p => p.id === playerId).money}" value="${currentBetAmount || 0}">
+                    </div>
+                    <button type="submit" class="btn btn-warning w-100">Place Bet</button>
+                  </form>
+                </div>
+              </div>
+            `;
+          } else if (data.status === 'betting' && !data.isMyTurn) {
+            // Already placed bet
+            html = `
+              <div class="card">
+                <div class="card-header bg-info text-white">
+                  <h5 class="mb-0">Your Bet</h5>
+                </div>
+                <div class="card-body">
+                  <p class="lead text-center mb-0">You bet: $${data.myBet}</p>
+                  <p class="text-center mt-2 mb-0">Waiting for other players...</p>
+                </div>
+              </div>
+            `;
+          } else if (data.status === 'roundComplete' && data.amHost) {
+            // Host can advance to next round
+            html = `
+              <div class="card">
+                <div class="card-header bg-success text-white">
+                  <h5 class="mb-0">Round Complete</h5>
+                </div>
+                <div class="card-body">
+                  ${data.roundWinner ? `<p class="lead text-center">${data.roundWinner.name} won this round!</p>` : '<p class="lead text-center">Round tied!</p>'}
+                  <button id="next-round-btn" class="btn btn-success w-100">Next Round</button>
+                </div>
+              </div>
+            `;
+          } else if (data.status === 'roundComplete' && !data.amHost) {
+            // Non-host waiting for next round
+            html = `
+              <div class="card">
+                <div class="card-header bg-info text-white">
+                  <h5 class="mb-0">Round Complete</h5>
+                </div>
+                <div class="card-body">
+                  ${data.roundWinner ? `<p class="lead text-center">${data.roundWinner.name} won this round!</p>` : '<p class="lead text-center">Round tied!</p>'}
+                  <p class="text-center">Waiting for host to start next round...</p>
+                </div>
+              </div>
+            `;
+          } else if (data.status === 'gameComplete') {
+            // Game complete
+            // Find game winner
+            let gameWinner = null;
+            for (let i = 0; i < data.players.length; i++) {
+              if (data.players[i].roundsWon >= data.roundsToWin) {
+                gameWinner = data.players[i];
+                break;
+              }
+            }
+            
+            html = `
+              <div class="card">
+                <div class="card-header bg-primary text-white">
+                  <h5 class="mb-0">Game Complete</h5>
+                </div>
+                <div class="card-body">
+                  ${gameWinner ? `<p class="lead text-center">${gameWinner.name} won the game!</p>` : '<p class="lead text-center">Game ended without a winner!</p>'}
+                  ${data.amHost ? '<button id="reset-game-btn" class="btn btn-primary w-100 mt-3">Play Again</button>' : '<p class="text-center">Waiting for host to start a new game...</p>'}
+                </div>
+              </div>
+            `;
+          }
+          
+          actionAreaElem.innerHTML = html;
+          
+          // Rebind event listeners to newly created elements
+          if (data.status === 'waiting' && data.amHost) {
+            const newStartButton = document.getElementById('start-game-btn');
+            if (newStartButton) {
+              newStartButton.onclick = function(e) {
+                e.preventDefault();
+                console.log('Start game button clicked');
+                
+                // Disable button to prevent multiple clicks
+                newStartButton.disabled = true;
+                newStartButton.textContent = 'Starting...';
+                
+                // Send AJAX request to start the game
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', '/game/' + gameId + '/start', true);
+                xhr.setRequestHeader('Content-Type', 'application/json');
+                
+                xhr.onload = function() {
+                  if (xhr.status === 200) {
+                    console.log('Game started successfully');
+                    updateGameState(); // Update UI immediately
+                  } else {
+                    console.error('Error starting game:', xhr.responseText);
+                    alert('Error starting game. Please try again.');
+                    newStartButton.disabled = false;
+                    newStartButton.textContent = 'Start Game';
+                  }
+                };
+                
+                xhr.onerror = function() {
+                  console.error('Network error when starting game');
+                  alert('Network error. Please check your connection and try again.');
+                  newStartButton.disabled = false;
+                  newStartButton.textContent = 'Start Game';
+                };
+                
+                xhr.send(JSON.stringify({}));
+              };
+            }
+          } else if (data.status === 'betting' && data.isMyTurn) {
+            const newBetForm = document.getElementById('bet-form');
+            if (newBetForm) {
+              newBetForm.onsubmit = function(e) {
+                e.preventDefault();
+                
+                const betAmount = document.getElementById('bet-amount').value;
+                
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', '/game/' + gameId + '/bet', true);
+                xhr.setRequestHeader('Content-Type', 'application/json');
+                
+                xhr.onload = function() {
+                  if (xhr.status === 200) {
+                    console.log('Bet placed successfully');
+                    updateGameState(); // Update UI immediately
+                  } else {
+                    console.error('Error placing bet:', xhr.responseText);
+                    alert('Error placing bet. Please try again.');
+                  }
+                };
+                
+                xhr.send(JSON.stringify({ amount: betAmount }));
+              };
+            }
+          } else if (data.status === 'roundComplete' && data.amHost) {
+            const newNextRoundButton = document.getElementById('next-round-btn');
+            if (newNextRoundButton) {
+              newNextRoundButton.onclick = function(e) {
+                e.preventDefault();
+                
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', '/game/' + gameId + '/nextround', true);
+                xhr.setRequestHeader('Content-Type', 'application/json');
+                
+                xhr.onload = function() {
+                  if (xhr.status === 200) {
+                    console.log('Next round started successfully');
+                    updateGameState(); // Update UI immediately
+                  } else {
+                    console.error('Error starting next round:', xhr.responseText);
+                    alert('Error starting next round. Please try again.');
+                  }
+                };
+                
+                xhr.send(JSON.stringify({}));
+              };
+            }
+          } else if (data.status === 'gameComplete' && data.amHost) {
+            const newResetButton = document.getElementById('reset-game-btn');
+            if (newResetButton) {
+              newResetButton.onclick = function(e) {
+                e.preventDefault();
+                
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', '/game/' + gameId + '/reset', true);
+                xhr.setRequestHeader('Content-Type', 'application/json');
+                
+                xhr.onload = function() {
+                  if (xhr.status === 200) {
+                    console.log('Game reset successfully');
+                    updateGameState(); // Update UI immediately
+                  } else {
+                    console.error('Error resetting game:', xhr.responseText);
+                    alert('Error resetting game. Please try again.');
+                  }
+                };
+                
+                xhr.send(JSON.stringify({}));
+              };
+            }
+          }
+        }
+      }
+      
+      // Helper function to format game status for display
+      function formatGameStatus(status) {
+        switch (status) {
+          case 'waiting':
+            return 'Waiting for Players';
+          case 'betting':
+            return 'Betting in Progress';
+          case 'roundComplete':
+            return 'Round Complete';
+          case 'gameComplete':
+            return 'Game Complete';
+          default:
+            return status;
+        }
+      }
+      
+      // Initial game state update
+      updateGameState();
+    });
+  </script>
+</body>
+</html>
