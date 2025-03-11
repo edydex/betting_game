@@ -98,8 +98,13 @@ app.post('/game/create', (req, res) => {
 
 // Join an existing game
 app.post('/game/join', (req, res) => {
-  const gameId = req.body.gameId;
+  let gameId = req.body.gameId;
   const username = req.body.username;
+  
+  // Normalize the game ID to uppercase for comparison
+  if (gameId) {
+    gameId = gameId.toUpperCase();
+  }
   
   console.log(`User ${username} attempting to join game ${gameId}`);
   
@@ -337,6 +342,7 @@ app.post('/game/:gameId/nextround', (req, res) => {
   game.status = 'betting';
   game.bets = {};
   game.roundWinner = null;
+  game.showRoundResults = false; // Hide round results
   
   console.log(`Game ${gameId} advanced to round ${game.currentRound}`);
   res.json({ success: true });
@@ -377,6 +383,7 @@ app.post('/game/:gameId/reset', (req, res) => {
   game.status = 'waiting';
   game.bets = {};
   game.roundWinner = null;
+  game.overallWinner = null;
   
   console.log(`Game ${gameId} reset successfully`);
   res.json({ success: true });
@@ -438,9 +445,18 @@ app.get('/game/:gameId/state', (req, res) => {
       id: game.roundWinner.id,
       name: game.roundWinner.name
     } : null,
+    overallWinner: game.overallWinner ? {
+      id: game.overallWinner.id,
+      name: game.overallWinner.name,
+      roundsWon: game.overallWinner.roundsWon,
+      money: game.overallWinner.money
+    } : null,
     myBet: game.bets[player.id],
     isMyTurn: game.status === 'betting' && game.bets[player.id] === undefined,
-    amHost: player.host
+    amHost: player.host,
+    // Include the last round's bets
+    lastRoundBets: game.lastRoundBets || {},
+    showRoundResults: game.showRoundResults || false
   };
   
   // Return the game state
@@ -462,6 +478,18 @@ function completeRound(game) {
       winnerId = playerId;
     }
   }
+  
+  // Store last round's bets before updating money
+  game.lastRoundBets = { ...game.bets };
+  game.showRoundResults = true;
+  
+  // Set a timer to hide round results after 5 seconds
+  setTimeout(() => {
+    if (games[game.id]) {
+      games[game.id].showRoundResults = false;
+      console.log(`Round results hidden for game ${game.id}`);
+    }
+  }, 5000);
   
   // Update player balances
   game.players.forEach(player => {
@@ -485,16 +513,33 @@ function completeRound(game) {
   game.status = 'roundComplete';
   
   // Check if the game is over
-  if (game.players.some(p => p.roundsWon >= game.roundsToWin) || game.currentRound >= game.totalRounds) {
-    console.log(`Game ${game.id} complete after ${game.currentRound} rounds`);
+  const playerWith3Wins = game.players.find(p => p.roundsWon >= game.roundsToWin);
+  
+  if (playerWith3Wins) {
+    // Someone has 3 or more wins, they're the winner
+    console.log(`Game ${game.id} complete - ${playerWith3Wins.name} won with ${playerWith3Wins.roundsWon} rounds`);
+    game.status = 'gameComplete';
+    game.overallWinner = playerWith3Wins;
+  } else if (game.currentRound >= game.totalRounds) {
+    // Game over by rounds, but nobody has 3 wins
+    console.log(`Game ${game.id} complete after ${game.currentRound} rounds, determining winner by wins and money`);
     game.status = 'gameComplete';
     
-    // Find the winner(s)
-    const winners = game.players.filter(p => p.roundsWon >= game.roundsToWin);
-    if (winners.length > 0) {
-      console.log(`Game winner(s): ${winners.map(w => w.name).join(', ')}`);
+    // Find player(s) with most wins
+    const maxWins = Math.max(...game.players.map(p => p.roundsWon));
+    const playersWithMostWins = game.players.filter(p => p.roundsWon === maxWins);
+    
+    if (playersWithMostWins.length === 1) {
+      // Only one player has the most wins
+      game.overallWinner = playersWithMostWins[0];
+      console.log(`${game.overallWinner.name} won with ${maxWins} wins and ${game.overallWinner.money}`);
     } else {
-      console.log(`Game ended without a clear winner after ${game.currentRound} rounds`);
+      // Multiple players tied for wins, determine by money
+      const winnerByMoney = playersWithMostWins.reduce((prev, current) => 
+        (prev.money > current.money) ? prev : current
+      );
+      game.overallWinner = winnerByMoney;
+      console.log(`${game.overallWinner.name} won with ${maxWins} wins and ${game.overallWinner.money} (tiebreaker by money)`);
     }
   }
 }
