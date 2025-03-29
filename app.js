@@ -57,8 +57,9 @@ app.get('/', (req, res) => {
 app.post('/game/create', (req, res) => {
   const gameId = generateGameId();
   const username = req.body.username;
+  const gameMode = req.body.gameMode || 'standard'; // Default to standard if not specified
   
-  console.log(`Creating new game ${gameId} for user ${username}`);
+  console.log(`Creating new game ${gameId} for user ${username}, mode: ${gameMode}`);
   
   if (!username || username.trim() === '') {
     req.session.error = 'Please enter a username';
@@ -71,6 +72,7 @@ app.post('/game/create', (req, res) => {
   games[gameId] = {
     id: gameId,
     createdAt: createdAt,
+    gameMode: gameMode, // Add game mode to the game state
     players: [{
       id: generatePlayerId(),
       name: username,
@@ -121,7 +123,7 @@ app.post('/game/join', (req, res) => {
   
   const game = games[gameId];
   
-  console.log(`Game ${gameId} status: ${game.status}, current players: ${game.players.length}`);
+  console.log(`Game ${gameId} status: ${game.status}, current players: ${game.players.length}, mode: ${game.gameMode}`);
   
   if (game.status !== 'waiting') {
     console.log(`Game ${gameId} has already started`);
@@ -185,7 +187,7 @@ app.get('/game/:gameId', (req, res) => {
     return res.redirect('/');
   }
   
-  console.log(`Rendering game page for ${gameId}, status: ${game.status}, players: ${game.players.length}`);
+  console.log(`Rendering game page for ${gameId}, status: ${game.status}, players: ${game.players.length}, mode: ${game.gameMode}`);
   
   res.render('game', { 
     game: game, 
@@ -330,10 +332,14 @@ app.post('/game/:gameId/nextround', (req, res) => {
     return res.status(400).json({ error: 'Cannot start next round yet' });
   }
   
-  // Check if the game is over
-  if (game.players.some(p => p.roundsWon >= game.roundsToWin) || game.currentRound >= game.totalRounds) {
+  // Check if the game is over based on game mode
+  if (shouldEndGame(game)) {
     console.log(`Game ${gameId} complete after ${game.currentRound} rounds`);
     game.status = 'gameComplete';
+    
+    // Determine the overall winner
+    determineOverallWinner(game);
+    
     return res.json({ success: true, gameComplete: true });
   }
   
@@ -341,7 +347,7 @@ app.post('/game/:gameId/nextround', (req, res) => {
   game.currentRound++;
   game.status = 'betting';
   game.bets = {};
-  game.roundWinner = null;
+  game.roundWinners = null;
   game.showRoundResults = false; // Hide round results
   
   console.log(`Game ${gameId} advanced to round ${game.currentRound}`);
@@ -382,8 +388,12 @@ app.post('/game/:gameId/reset', (req, res) => {
   game.currentRound = 0;
   game.status = 'waiting';
   game.bets = {};
-  game.roundWinner = null;
+  game.roundWinners = null;
   game.overallWinner = null;
+  game.lastRoundBets = {};
+  game.showRoundResults = false;
+  game.secondHighestBid = undefined;
+  game.actualPayments = {};
   
   console.log(`Game ${gameId} reset successfully`);
   res.json({ success: true });
@@ -441,10 +451,8 @@ app.get('/game/:gameId/state', (req, res) => {
     totalRounds: game.totalRounds,
     roundsToWin: game.roundsToWin,
     status: game.status,
-    roundWinner: game.roundWinner ? {
-      id: game.roundWinner.id,
-      name: game.roundWinner.name
-    } : null,
+    gameMode: game.gameMode,
+    roundWinners: game.roundWinners,
     overallWinner: game.overallWinner ? {
       id: game.overallWinner.id,
       name: game.overallWinner.name,
@@ -454,30 +462,63 @@ app.get('/game/:gameId/state', (req, res) => {
     myBet: game.bets[player.id],
     isMyTurn: game.status === 'betting' && game.bets[player.id] === undefined,
     amHost: player.host,
-    // Include the last round's bets
     lastRoundBets: game.lastRoundBets || {},
-    showRoundResults: game.showRoundResults || false
+    showRoundResults: game.showRoundResults || false,
+    secondHighestBid: game.secondHighestBid,
+    actualPayments: game.actualPayments
   };
   
   // Return the game state
   res.json(gameState);
 });
 
-// Helper function to complete a round
-function completeRound(game) {
-  console.log(`Completing round ${game.currentRound} for game ${game.id}`);
-  
-  // Find the highest bet
-  let highestBet = -1;
-  let winnerId = null;
-  
-  for (const playerId in game.bets) {
-    const bet = game.bets[playerId];
-    if (bet > highestBet) {
-      highestBet = bet;
-      winnerId = playerId;
+// Helper function to check if game should end
+function shouldEndGame(game) {
+  if (game.gameMode === 'standard') {
+    // Standard mode: game ends if someone has 3+ wins or after 5 rounds
+    return game.players.some(p => p.roundsWon >= game.roundsToWin) || game.currentRound >= game.totalRounds;
+  } else {
+    // Vickrey mode: game always runs exactly 5 rounds
+    return game.currentRound >= game.totalRounds;
+  }
+}
+
+// Helper function to determine the overall winner
+function determineOverallWinner(game) {
+  if (game.gameMode === 'standard') {
+    // Standard mode: check for 3 wins first
+    const playerWith3Wins = game.players.find(p => p.roundsWon >= game.roundsToWin);
+    
+    if (playerWith3Wins) {
+      // Someone has 3 or more wins, they're the winner
+      console.log(`Game ${game.id} complete - ${playerWith3Wins.name} won with ${playerWith3Wins.roundsWon} rounds`);
+      game.overallWinner = playerWith3Wins;
+      return;
     }
   }
+  
+  // For both modes: if no player has 3 wins, determine by most wins then money
+  // Find player(s) with most wins
+  const maxWins = Math.max(...game.players.map(p => p.roundsWon));
+  const playersWithMostWins = game.players.filter(p => p.roundsWon === maxWins);
+  
+  if (playersWithMostWins.length === 1) {
+    // Only one player has the most wins
+    game.overallWinner = playersWithMostWins[0];
+    console.log(`${game.overallWinner.name} won with ${maxWins} wins and $${game.overallWinner.money}`);
+  } else {
+    // Multiple players tied for wins, determine by money
+    const winnerByMoney = playersWithMostWins.reduce((prev, current) => 
+      (prev.money > current.money) ? prev : current
+    );
+    game.overallWinner = winnerByMoney;
+    console.log(`${game.overallWinner.name} won with ${maxWins} wins and $${game.overallWinner.money} (tiebreaker by money)`);
+  }
+}
+
+// Helper function to complete a round
+function completeRound(game) {
+  console.log(`Completing round ${game.currentRound} for game ${game.id}, mode: ${game.gameMode}`);
   
   // Store last round's bets before updating money
   game.lastRoundBets = { ...game.bets };
@@ -491,56 +532,95 @@ function completeRound(game) {
     }
   }, 5000);
   
-  // Update player balances
-  game.players.forEach(player => {
-    // Deduct bet amount
-    player.money -= game.bets[player.id] || 0;
-  });
+  // Find the highest and second highest bids
+  let bids = Object.entries(game.bets)
+    .map(([playerId, amount]) => ({ playerId, amount }))
+    .sort((a, b) => b.amount - a.amount); // Sort by amount descending
   
-  // Find the winning player
-  const winner = game.players.find(p => p.id === winnerId);
-  
-  if (winner) {
-    // Increment rounds won
-    winner.roundsWon++;
-    game.roundWinner = winner;
-    console.log(`Player ${winner.name} won round ${game.currentRound} with bet of ${highestBet}`);
-  } else {
-    console.log(`No winner for round ${game.currentRound}`);
+  if (bids.length === 0) {
+    console.log(`No bids placed in round ${game.currentRound}`);
+    game.status = 'roundComplete';
+    game.roundWinners = [];
+    return;
   }
+  
+  const highestBid = bids[0].amount;
+  const highestBidders = bids.filter(bid => bid.amount === highestBid).map(bid => bid.playerId);
+  
+  // Find second highest bid (for Vickrey)
+  let secondHighestBid = bids.length > 1 ? bids.find(bid => bid.amount < highestBid)?.amount : undefined;
+  game.secondHighestBid = secondHighestBid;
+  
+  // Store actual payments
+  game.actualPayments = {};
+  
+  // Update player balances and determine winners based on game mode
+  if (game.gameMode === 'standard') {
+    // Standard mode: all players pay their bids
+    game.players.forEach(player => {
+      const betAmount = game.bets[player.id] || 0;
+      player.money -= betAmount;
+      game.actualPayments[player.id] = betAmount;
+    });
+    
+    // Single winner
+    if (highestBidders.length === 1) {
+      const winner = game.players.find(p => p.id === highestBidders[0]);
+      winner.roundsWon++;
+      console.log(`Player ${winner.name} won round ${game.currentRound} with bet of ${highestBid}`);
+    } 
+    // Multiple winners (tie)
+    else if (highestBidders.length > 1) {
+      highestBidders.forEach(winnerId => {
+        const winner = game.players.find(p => p.id === winnerId);
+        winner.roundsWon++;
+        console.log(`Player ${winner.name} tied for win in round ${game.currentRound} with bet of ${highestBid}`);
+      });
+    }
+  } 
+  else {
+    // Vickrey mode: only winner pays the second highest bid
+    game.players.forEach(player => {
+      // By default, no one pays anything
+      game.actualPayments[player.id] = 0;
+    });
+    
+    // Single winner
+    if (highestBidders.length === 1) {
+      const winner = game.players.find(p => p.id === highestBidders[0]);
+      
+      // Winner pays second highest bid, or their own bid if they're the only bidder
+      const payment = secondHighestBid !== undefined ? secondHighestBid : highestBid;
+      winner.money -= payment;
+      game.actualPayments[winner.id] = payment;
+      
+      winner.roundsWon++;
+      console.log(`Player ${winner.name} won round ${game.currentRound} with bet of ${highestBid}, pays ${payment}`);
+    } 
+    // Multiple winners (tie)
+    else if (highestBidders.length > 1) {
+      // In ties, all highest bidders win rounds but don't pay anything
+      highestBidders.forEach(winnerId => {
+        const winner = game.players.find(p => p.id === winnerId);
+        winner.roundsWon++;
+        console.log(`Player ${winner.name} tied for win in round ${game.currentRound} with bet of ${highestBid}, pays 0`);
+      });
+    }
+  }
+  
+  // Store the round winners
+  game.roundWinners = highestBidders;
   
   // Update game status
   game.status = 'roundComplete';
   
   // Check if the game is over
-  const playerWith3Wins = game.players.find(p => p.roundsWon >= game.roundsToWin);
-  
-  if (playerWith3Wins) {
-    // Someone has 3 or more wins, they're the winner
-    console.log(`Game ${game.id} complete - ${playerWith3Wins.name} won with ${playerWith3Wins.roundsWon} rounds`);
-    game.status = 'gameComplete';
-    game.overallWinner = playerWith3Wins;
-  } else if (game.currentRound >= game.totalRounds) {
-    // Game over by rounds, but nobody has 3 wins
-    console.log(`Game ${game.id} complete after ${game.currentRound} rounds, determining winner by wins and money`);
+  if (shouldEndGame(game)) {
+    console.log(`Game ${game.id} complete after ${game.currentRound} rounds`);
     game.status = 'gameComplete';
     
-    // Find player(s) with most wins
-    const maxWins = Math.max(...game.players.map(p => p.roundsWon));
-    const playersWithMostWins = game.players.filter(p => p.roundsWon === maxWins);
-    
-    if (playersWithMostWins.length === 1) {
-      // Only one player has the most wins
-      game.overallWinner = playersWithMostWins[0];
-      console.log(`${game.overallWinner.name} won with ${maxWins} wins and ${game.overallWinner.money}`);
-    } else {
-      // Multiple players tied for wins, determine by money
-      const winnerByMoney = playersWithMostWins.reduce((prev, current) => 
-        (prev.money > current.money) ? prev : current
-      );
-      game.overallWinner = winnerByMoney;
-      console.log(`${game.overallWinner.name} won with ${maxWins} wins and ${game.overallWinner.money} (tiebreaker by money)`);
-    }
+    // Determine the overall winner
+    determineOverallWinner(game);
   }
 }
 

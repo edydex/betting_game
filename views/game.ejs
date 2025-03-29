@@ -56,6 +56,63 @@
       background-color: #e8f4fe;
       font-weight: bold;
     }
+    
+    /* Rules Modal Styles */
+    .rules-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    
+    .rules-modal {
+      background-color: #fff;
+      border-radius: 10px;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+      width: 90%;
+      max-width: 600px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    
+    .rules-header {
+      background: linear-gradient(to right, #4e73df, #224abe);
+      color: white;
+      padding: 15px 20px;
+      border-top-left-radius: 10px;
+      border-top-right-radius: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .rules-body {
+      padding: 20px;
+    }
+    
+    .close-btn {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 1.5rem;
+      cursor: pointer;
+    }
+    
+    /* Game mode badge */
+    .badge-standard {
+      background-color: #1cc88a !important;
+    }
+    
+    .badge-vickrey {
+      background-color: #f6c23e !important;
+      color: #212529 !important;
+    }
   </style>
 </head>
 <body>
@@ -66,6 +123,9 @@
           <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
             <h3 class="mb-0">Fool's Prize: Room <%= game.id %></h3>
             <div>
+              <span class="badge <%= game.gameMode === 'vickrey' ? 'badge-vickrey' : 'badge-standard' %>">
+                <%= game.gameMode === 'vickrey' ? 'Vickrey Auction' : 'Standard Bidding' %>
+              </span>
               <span class="badge bg-info">Round: <span id="current-round"><%= game.currentRound %></span>/<%= game.totalRounds %></span>
               <span class="ms-2 badge bg-success">Your Money: $<span id="player-money"><%= player.money %></span></span>
             </div>
@@ -81,6 +141,9 @@
                 <% if (game.status === 'waiting') { %>
                   <div class="mt-2">Waiting for players to join. Share this code with friends: <strong><%= game.id %></strong></div>
                 <% } %>
+              </div>
+              <div class="text-center">
+                <button id="show-rules-btn" class="btn btn-sm btn-outline-primary">View Game Rules</button>
               </div>
             </div>
             
@@ -155,6 +218,71 @@
     </div>
   </div>
   
+  <!-- Rules Modal -->
+  <div id="rules-modal" class="rules-overlay">
+    <div class="rules-modal">
+      <div class="rules-header">
+        <h5 class="mb-0">Game Rules</h5>
+        <button class="close-btn">&times;</button>
+      </div>
+      <div class="rules-body">
+        <h5>Current Mode: <span id="current-mode-text"><%= game.gameMode === 'vickrey' ? 'Vickrey Auction' : 'Standard Bidding' %></span></h5>
+        <hr>
+        <% if (game.gameMode === 'vickrey') { %>
+          <div class="mb-4">
+            <h5>Vickrey Auction Mode:</h5>
+            <ul>
+              <li>Each player starts with $100</li>
+              <li>There are 5 rounds in total</li>
+              <li>Player with the most wins after 5 rounds wins the game (money is used as a tiebreaker)</li>
+              <li>The player who places the highest bid each round wins that round</li>
+              <li>Only the winner pays, and they pay the second-highest bid amount</li>
+              <li>If there's only one bid (everyone else bids 0), the winner pays their full bid</li>
+              <li>In case of a tie for highest bid, the win is split (both players receive a win)</li>
+            </ul>
+          </div>
+        <% } else { %>
+          <div class="mb-4">
+            <h5>Standard Bidding Mode:</h5>
+            <ul>
+              <li>Each player starts with $100</li>
+              <li>There are 5 rounds in total</li>
+              <li>Win 3 rounds to win the game</li>
+              <li>The player who places the highest bet each round wins that round</li>
+              <li>All players pay their full bid amount each round</li>
+              <li>If no player reaches 3 wins, the player with the most wins (and most money in case of a tie) wins the game</li>
+            </ul>
+          </div>
+        <% } %>
+        <div>
+          <h5>The Other Mode:</h5>
+          <% if (game.gameMode === 'vickrey') { %>
+            <h6>Standard Bidding Mode:</h6>
+            <ul>
+              <li>Each player starts with $100</li>
+              <li>There are 5 rounds in total</li>
+              <li>Win 3 rounds to win the game</li>
+              <li>The player who places the highest bet each round wins that round</li>
+              <li>All players pay their full bid amount each round</li>
+              <li>If no player reaches 3 wins, the player with the most wins (and most money in case of a tie) wins the game</li>
+            </ul>
+          <% } else { %>
+            <h6>Vickrey Auction Mode:</h6>
+            <ul>
+              <li>Each player starts with $100</li>
+              <li>There are 5 rounds in total</li>
+              <li>Player with the most wins after 5 rounds wins the game (money is used as a tiebreaker)</li>
+              <li>The player who places the highest bid each round wins that round</li>
+              <li>Only the winner pays, and they pay the second-highest bid amount</li>
+              <li>If there's only one bid (everyone else bids 0), the winner pays their full bid</li>
+              <li>In case of a tie for highest bid, the win is split (both players receive a win)</li>
+            </ul>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  </div>
+  
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -162,11 +290,13 @@
       const gameId = '<%= game.id %>';
       const playerId = '<%= player.id %>';
       const isHost = <%= player.host %>;
+      const gameMode = '<%= game.gameMode %>';
       
-      console.log('Game initialized. Game ID:', gameId, 'Player ID:', playerId, 'Is Host:', isHost);
+      console.log('Game initialized. Game ID:', gameId, 'Player ID:', playerId, 'Is Host:', isHost, 'Game Mode:', gameMode);
       
       // Control variable for polling
       let isPollingSuspended = false;
+      let isRulesModalOpen = false;
       
       // Set up polling for game state
       setInterval(function() {
@@ -174,6 +304,31 @@
           updateGameState();
         }
       }, 1000);
+      
+      // Rules modal handling
+      const rulesModal = document.getElementById('rules-modal');
+      const showRulesBtn = document.getElementById('show-rules-btn');
+      const closeBtn = document.querySelector('.close-btn');
+      
+      // Show rules modal
+      showRulesBtn.addEventListener('click', function() {
+        rulesModal.style.display = 'flex';
+        isRulesModalOpen = true;
+      });
+      
+      // Close modal when clicking the X button
+      closeBtn.addEventListener('click', function() {
+        rulesModal.style.display = 'none';
+        isRulesModalOpen = false;
+      });
+      
+      // Close modal when clicking outside
+      rulesModal.addEventListener('click', function(e) {
+        if (e.target === rulesModal) {
+          rulesModal.style.display = 'none';
+          isRulesModalOpen = false;
+        }
+      });
       
       // Add event listeners for the betting form
       document.addEventListener('focusin', function(e) {
@@ -322,6 +477,11 @@
       
       // Function to update game state
       function updateGameState() {
+        // Don't update if rules modal is open
+        if (isRulesModalOpen) {
+          return;
+        }
+        
         const xhr = new XMLHttpRequest();
         xhr.open('GET', '/game/' + gameId + '/state', true);
         
@@ -389,9 +549,19 @@
         const roundResultsPopup = document.getElementById('round-results-popup');
         const roundResultsContent = document.getElementById('round-results-content');
         
-        if (data.showRoundResults && Object.keys(data.lastRoundBets).length > 0 && data.roundWinner) {
+        if (data.showRoundResults && Object.keys(data.lastRoundBets).length > 0) {
           // Show the round results
           let resultsHtml = '';
+          
+          // Add information about Vickrey mechanism if relevant
+          if (data.gameMode === 'vickrey' && data.roundWinners && data.roundWinners.length > 0) {
+            resultsHtml += `<div class="alert alert-info">
+              <strong>Vickrey Auction:</strong> Winner pays the second-highest bid amount.
+              ${data.secondHighestBid !== undefined ? 
+                `<br>Second highest bid: $${data.secondHighestBid}` : 
+                '<br>Only one bid - Winner pays their full bid.'}
+            </div>`;
+          }
           
           // Sort players by bet amount (descending)
           const playersWithBets = data.players
@@ -400,11 +570,11 @@
           
           // Add each player's bet
           playersWithBets.forEach(p => {
-            const isWinner = p.id === data.roundWinner.id;
+            const isWinner = data.roundWinners && data.roundWinners.includes(p.id);
             resultsHtml += `
               <div class="bet-row ${isWinner ? 'winner-row' : ''}">
                 <span>${p.name} ${isWinner ? '(Winner)' : ''}</span>
-                <span>${data.lastRoundBets[p.id]}</span>
+                <span>$${data.lastRoundBets[p.id]}</span>
               </div>
             `;
           });
@@ -419,6 +589,22 @@
               </div>
             `;
           });
+          
+          // Add payment information for Vickrey
+          if (data.gameMode === 'vickrey' && data.actualPayments) {
+            resultsHtml += `<hr><div class="alert alert-success">Actual payments made:</div>`;
+            Object.entries(data.actualPayments).forEach(([playerId, amount]) => {
+              const player = data.players.find(p => p.id === playerId);
+              if (player && amount > 0) {
+                resultsHtml += `
+                  <div class="bet-row">
+                    <span>${player.name}</span>
+                    <span>Paid $${amount}</span>
+                  </div>
+                `;
+              }
+            });
+          }
           
           roundResultsContent.innerHTML = resultsHtml;
           roundResultsPopup.style.display = 'flex';
@@ -442,9 +628,9 @@
               } else {
                 statusHtml = '<span class="badge bg-warning text-dark">...</span>';
               }
-            } else if (data.status === 'roundComplete' && data.roundWinner && data.roundWinner.id === p.id) {
+            } else if (data.status === 'roundComplete' && data.roundWinners && data.roundWinners.includes(p.id)) {
               statusHtml = '<span class="badge bg-success">Winner</span>';
-            } else if (data.status === 'gameComplete' && p.roundsWon >= data.roundsToWin) {
+            } else if (data.status === 'gameComplete' && data.overallWinner && data.overallWinner.id === p.id) {
               statusHtml = '<span class="badge bg-success">Champion</span>';
             } else {
               statusHtml = '<span class="badge bg-secondary">-</span>';
@@ -501,6 +687,8 @@
                       <label for="bet-amount" class="form-label">Bet Amount ($):</label>
                       <input type="number" class="form-control" id="bet-amount" min="0" max="${data.players.find(p => p.id === playerId).money}" value="${currentBetAmount || 0}">
                     </div>
+                    ${data.gameMode === 'vickrey' ? 
+                      '<div class="alert alert-info small mb-3">In Vickrey mode, if you win, you\'ll pay the second-highest bid amount.</div>' : ''}
                     <button type="submit" class="btn btn-warning w-100">Place Bet</button>
                   </form>
                 </div>
@@ -527,7 +715,10 @@
                   <h5 class="mb-0">Round Complete</h5>
                 </div>
                 <div class="card-body">
-                  ${data.roundWinner ? `<p class="lead text-center">${data.roundWinner.name} won this round!</p>` : '<p class="lead text-center">Round tied!</p>'}
+                  ${data.roundWinners && data.roundWinners.length > 0 ? 
+                    `<p class="lead text-center">${data.roundWinners.map(id => 
+                      data.players.find(p => p.id === id).name).join(' & ')} won this round!</p>` : 
+                    '<p class="lead text-center">Round tied!</p>'}
                   <button id="next-round-btn" class="btn btn-success w-100">Next Round</button>
                 </div>
               </div>
@@ -540,7 +731,10 @@
                   <h5 class="mb-0">Round Complete</h5>
                 </div>
                 <div class="card-body">
-                  ${data.roundWinner ? `<p class="lead text-center">${data.roundWinner.name} won this round!</p>` : '<p class="lead text-center">Round tied!</p>'}
+                  ${data.roundWinners && data.roundWinners.length > 0 ? 
+                    `<p class="lead text-center">${data.roundWinners.map(id => 
+                      data.players.find(p => p.id === id).name).join(' & ')} won this round!</p>` : 
+                    '<p class="lead text-center">Round tied!</p>'}
                   <p class="text-center">Waiting for host to start next round...</p>
                 </div>
               </div>
@@ -550,12 +744,12 @@
             let winnerText = '';
             
             if (data.overallWinner) {
-              if (data.overallWinner.roundsWon >= data.roundsToWin) {
+              if (data.gameMode === 'standard' && data.overallWinner.roundsWon >= data.roundsToWin) {
                 winnerText = `<p class="lead text-center">${data.overallWinner.name} won the game with ${data.overallWinner.roundsWon} rounds!</p>`;
               } else {
                 winnerText = `
                   <p class="lead text-center">${data.overallWinner.name} won the game!</p>
-                  <p class="text-center">Wins: ${data.overallWinner.roundsWon}, Money: ${data.overallWinner.money}</p>
+                  <p class="text-center">Wins: ${data.overallWinner.roundsWon}, Money: $${data.overallWinner.money}</p>
                 `;
               }
             } else {
