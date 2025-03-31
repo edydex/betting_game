@@ -130,7 +130,7 @@
               <span class="badge <%= game.gameMode === 'vickrey' ? 'badge-vickrey' : (game.gameMode === 'standard' ? 'badge-standard' : 'badge-all-pay') %>">
                 <%= game.gameMode === 'vickrey' ? 'Vickrey Auction' : (game.gameMode === 'standard' ? 'Standard Auction' : 'All-Pay Auction') %>
               </span>
-              <span class="badge bg-info">Round: <span id="current-round"><%= game.currentRound %></span>/<%= game.totalRounds %></span>
+              <span class="badge bg-info">Round: <span id="current-round"><%= game.currentRound %></span>/<span id="total-rounds"><%= game.totalRounds %></span></span>
               <span class="ms-2 badge bg-success">Your Money: $<span id="player-money"><%= player.money %></span></span>
             </div>
           </div>
@@ -555,8 +555,12 @@
         
         // Update round info
         const currentRoundElem = document.getElementById('current-round');
+        const totalRoundsElem = document.getElementById('total-rounds');
         if (currentRoundElem) {
           currentRoundElem.textContent = data.currentRound;
+        }
+        if (totalRoundsElem) {
+          totalRoundsElem.textContent = data.totalRounds;
         }
         
         // Update player's money

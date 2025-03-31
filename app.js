@@ -53,6 +53,17 @@ app.get('/', (req, res) => {
   delete req.session.error;
 });
 
+// Helper function to determine total rounds based on player count
+function getTotalRoundsForPlayerCount(playerCount) {
+  if (playerCount <= 2) {
+    return 5;
+  } else if (playerCount === 3) {
+    return 7;
+  } else {
+    return 9;  // 4+ players
+  }
+}
+
 // Create a new game
 app.post('/game/create', (req, res) => {
   const gameId = generateGameId();
@@ -69,6 +80,9 @@ app.post('/game/create', (req, res) => {
   // Create a timestamp for the game
   const createdAt = Date.now();
 
+  // Start with 1 player (the host)
+  const initialRounds = getTotalRoundsForPlayerCount(1);
+
   games[gameId] = {
     id: gameId,
     createdAt: createdAt,
@@ -81,7 +95,7 @@ app.post('/game/create', (req, res) => {
       host: true
     }],
     currentRound: 0,
-    totalRounds: 5,
+    totalRounds: initialRounds,
     roundsToWin: 3,
     status: 'waiting', // waiting, betting, roundComplete, gameComplete
     bets: {},
@@ -147,6 +161,10 @@ app.post('/game/join', (req, res) => {
   };
   
   game.players.push(newPlayer);
+  
+  // Update total rounds based on new player count
+  game.totalRounds = getTotalRoundsForPlayerCount(game.players.length);
+  console.log(`Updated total rounds to ${game.totalRounds} for game ${gameId} with ${game.players.length} players`);
   
   console.log(`User ${username} successfully joined game ${gameId}`);
   
@@ -475,10 +493,10 @@ app.get('/game/:gameId/state', (req, res) => {
 // Helper function to check if game should end
 function shouldEndGame(game) {
   if (game.gameMode === 'all-pay') {
-    // All-Pay mode: game ends if someone has 3+ wins or after 5 rounds
+    // All-Pay mode: game ends if someone has 3+ wins or after all rounds
     return game.players.some(p => p.roundsWon >= game.roundsToWin) || game.currentRound >= game.totalRounds;
   } else {
-    // Standard or Vickrey mode: game always runs exactly 5 rounds
+    // Standard or Vickrey mode: game always runs all rounds
     return game.currentRound >= game.totalRounds;
   }
 }
