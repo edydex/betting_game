@@ -84,9 +84,15 @@
                       <div class="mb-3">
                         <label class="form-label">Game Mode:</label>
                         <div class="form-check">
-                          <input class="form-check-input" type="radio" name="gameMode" id="standardMode" value="standard" checked>
+                          <input class="form-check-input" type="radio" name="gameMode" id="allPayMode" value="all-pay" checked>
+                          <label class="form-check-label" for="allPayMode">
+                            All-Pay Auction
+                          </label>
+                        </div>
+                        <div class="form-check">
+                          <input class="form-check-input" type="radio" name="gameMode" id="standardMode" value="standard">
                           <label class="form-check-label" for="standardMode">
-                            All-Pay Bidding
+                            Standard Auction
                           </label>
                         </div>
                         <div class="form-check">
@@ -140,14 +146,24 @@
         <button class="close-btn">&times;</button>
       </div>
       <div class="rules-body">
-        <h5>All-Pay Bidding Mode:</h5>
+        <h5>All-Pay Auction Mode:</h5>
         <ul>
           <li>Each player starts with $100</li>
           <li>There are 5 rounds in total</li>
           <li>Win 3 rounds to win the game</li>
           <li>The player who places the highest bet each round wins that round</li>
-          <li>All players pay their full bid amount each round</li>
+          <li>All players pay their full bid amount each round, regardless of whether they win</li>
           <li>If no player reaches 3 wins, the player with the most wins (and most money in case of a tie) wins the game</li>
+        </ul>
+        <hr>
+        <h5>Standard Auction Mode:</h5>
+        <ul>
+          <li>Each player starts with $100</li>
+          <li>There are 5 rounds in total</li>
+          <li>Player with the most wins after 5 rounds wins the game (money is used as a tiebreaker)</li>
+          <li>The player who places the highest bid each round wins that round</li>
+          <li>Only the winner pays their bid amount</li>
+          <li>In case of a tie for highest bid, all winners pay their full bid amount</li>
         </ul>
         <hr>
         <h5>Vickrey Auction Mode:</h5>

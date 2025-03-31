@@ -105,8 +105,12 @@
     }
     
     /* Game mode badge */
-    .badge-standard {
+    .badge-all-pay {
       background-color: #1cc88a !important;
+    }
+    
+    .badge-standard {
+      background-color: #36b9cc !important;
     }
     
     .badge-vickrey {
@@ -123,8 +127,8 @@
           <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
             <h3 class="mb-0">Betting Game: Room <%= game.id %></h3>
             <div>
-              <span class="badge <%= game.gameMode === 'vickrey' ? 'badge-vickrey' : 'badge-standard' %>">
-                <%= game.gameMode === 'vickrey' ? 'Vickrey Auction' : 'Standard Bidding' %>
+              <span class="badge <%= game.gameMode === 'vickrey' ? 'badge-vickrey' : (game.gameMode === 'standard' ? 'badge-standard' : 'badge-all-pay') %>">
+                <%= game.gameMode === 'vickrey' ? 'Vickrey Auction' : (game.gameMode === 'standard' ? 'Standard Auction' : 'All-Pay Auction') %>
               </span>
               <span class="badge bg-info">Round: <span id="current-round"><%= game.currentRound %></span>/<%= game.totalRounds %></span>
               <span class="ms-2 badge bg-success">Your Money: $<span id="player-money"><%= player.money %></span></span>
@@ -226,7 +230,9 @@
         <button class="close-btn">&times;</button>
       </div>
       <div class="rules-body">
-        <h5>Current Mode: <span id="current-mode-text"><%= game.gameMode === 'vickrey' ? 'Vickrey Auction' : 'Standard Bidding' %></span></h5>
+        <h5>Current Mode: <span id="current-mode-text">
+          <%= game.gameMode === 'vickrey' ? 'Vickrey Auction' : (game.gameMode === 'standard' ? 'Standard Auction' : 'All-Pay Auction') %>
+        </span></h5>
         <hr>
         <% if (game.gameMode === 'vickrey') { %>
           <div class="mb-4">
@@ -242,44 +248,57 @@
               <li>In a tie, all winners pay the third-highest bid amount</li>
             </ul>
           </div>
+        <% } else if (game.gameMode === 'standard') { %>
+          <div class="mb-4">
+            <h5>Standard Auction Mode:</h5>
+            <ul>
+              <li>Each player starts with $100</li>
+              <li>There are 5 rounds in total</li>
+              <li>Player with the most wins after 5 rounds wins the game (money is used as a tiebreaker)</li>
+              <li>The player who places the highest bid each round wins that round</li>
+              <li>Only the winner pays their bid amount</li>
+              <li>In case of a tie for highest bid, all tied players pay their full bid amount</li>
+              <li>In case of a tie, the win is split (0.5 for two-way tie, 0.4 for three-way tie, etc.)</li>
+            </ul>
+          </div>
         <% } else { %>
           <div class="mb-4">
-            <h5>Standard Bidding Mode:</h5>
+            <h5>All-Pay Auction Mode:</h5>
             <ul>
               <li>Each player starts with $100</li>
               <li>There are 5 rounds in total</li>
               <li>Win 3 rounds to win the game</li>
               <li>The player who places the highest bet each round wins that round</li>
-              <li>All players pay their full bid amount each round</li>
+              <li>All players pay their full bid amount each round, regardless of whether they win</li>
               <li>In case of a tie for highest bid, the win is split (0.5 for two-way tie, 0.4 for three-way tie, etc.)</li>
               <li>If no player reaches 3 wins, the player with the most wins (and most money in case of a tie) wins the game</li>
             </ul>
           </div>
         <% } %>
         <div>
-          <h5>The Other Mode:</h5>
-          <% if (game.gameMode === 'vickrey') { %>
-            <h6>Standard Bidding Mode:</h6>
+          <h5>Other Auction Modes:</h5>
+          <% if (game.gameMode !== 'all-pay') { %>
+            <h6>All-Pay Auction Mode:</h6>
             <ul>
               <li>Each player starts with $100</li>
-              <li>There are 5 rounds in total</li>
-              <li>Win 3 rounds to win the game</li>
-              <li>The player who places the highest bet each round wins that round</li>
-              <li>All players pay their full bid amount each round</li>
-              <li>In case of a tie for highest bid, the win is split (0.5 for two-way tie, 0.4 for three-way tie, etc.)</li>
-              <li>If no player reaches 3 wins, the player with the most wins (and most money in case of a tie) wins the game</li>
+              <li>All players pay their full bid amount each round, regardless of whether they win</li>
+              <li>Win 3 rounds to win the game (first to 3 wins)</li>
             </ul>
-          <% } else { %>
+          <% } %>
+          <% if (game.gameMode !== 'standard') { %>
+            <h6>Standard Auction Mode:</h6>
+            <ul>
+              <li>Each player starts with $100</li>
+              <li>Only the winner pays their bid amount</li>
+              <li>Player with the most wins after 5 rounds wins the game</li>
+            </ul>
+          <% } %>
+          <% if (game.gameMode !== 'vickrey') { %>
             <h6>Vickrey Auction Mode:</h6>
             <ul>
               <li>Each player starts with $100</li>
-              <li>There are 5 rounds in total</li>
-              <li>Player with the most wins after 5 rounds wins the game (money is used as a tiebreaker)</li>
-              <li>The player who places the highest bid each round wins that round</li>
-              <li>Only the winner pays, and they pay the second-highest bid amount</li>
-              <li>If there's only one bid (everyone else bids 0), the winner pays their full bid</li>
-              <li>In case of a tie for highest bid, the win is split (0.5 for two-way tie, 0.4 for three-way tie, etc.)</li>
-              <li>In a tie, all winners pay the third-highest bid amount</li>
+              <li>Only the winner pays, but they pay the second-highest bid amount</li>
+              <li>Player with the most wins after 5 rounds wins the game</li>
             </ul>
           <% } %>
         </div>

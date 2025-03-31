@@ -57,7 +57,7 @@ app.get('/', (req, res) => {
 app.post('/game/create', (req, res) => {
   const gameId = generateGameId();
   const username = req.body.username;
-  const gameMode = req.body.gameMode || 'standard'; // Default to standard if not specified
+  const gameMode = req.body.gameMode || 'all-pay'; // Default to all-pay if not specified
   
   console.log(`Creating new game ${gameId} for user ${username}, mode: ${gameMode}`);
   
@@ -474,19 +474,19 @@ app.get('/game/:gameId/state', (req, res) => {
 
 // Helper function to check if game should end
 function shouldEndGame(game) {
-  if (game.gameMode === 'standard') {
-    // Standard mode: game ends if someone has 3+ wins or after 5 rounds
+  if (game.gameMode === 'all-pay') {
+    // All-Pay mode: game ends if someone has 3+ wins or after 5 rounds
     return game.players.some(p => p.roundsWon >= game.roundsToWin) || game.currentRound >= game.totalRounds;
   } else {
-    // Vickrey mode: game always runs exactly 5 rounds
+    // Standard or Vickrey mode: game always runs exactly 5 rounds
     return game.currentRound >= game.totalRounds;
   }
 }
 
 // Helper function to determine the overall winner
 function determineOverallWinner(game) {
-  if (game.gameMode === 'standard') {
-    // Standard mode: check for 3 wins first
+  if (game.gameMode === 'all-pay') {
+    // All-Pay mode: check for 3 wins first
     const playerWith3Wins = game.players.find(p => p.roundsWon >= game.roundsToWin);
     
     if (playerWith3Wins) {
@@ -497,7 +497,7 @@ function determineOverallWinner(game) {
     }
   }
   
-  // For both modes: if no player has 3 wins, determine by most wins then money
+  // For all modes: if no player has 3 wins, determine by most wins then money
   // Find player(s) with most wins
   const maxWins = Math.max(...game.players.map(p => p.roundsWon));
   const playersWithMostWins = game.players.filter(p => p.roundsWon === maxWins);
@@ -567,8 +567,8 @@ function completeRound(game) {
   const fractionalWinAmount = getFractionalWinAmount(highestBidders.length);
   
   // Update player balances and determine winners based on game mode
-  if (game.gameMode === 'standard') {
-    // Standard mode: all players pay their bids
+  if (game.gameMode === 'all-pay') {
+    // All-Pay auction: all players pay their bids
     game.players.forEach(player => {
       const betAmount = game.bets[player.id] || 0;
       player.money -= betAmount;
@@ -590,6 +590,38 @@ function completeRound(game) {
       });
     }
   } 
+  else if (game.gameMode === 'standard') {
+    // Standard auction: only the winner pays their bid
+    game.players.forEach(player => {
+      // By default, no one pays anything
+      game.actualPayments[player.id] = 0;
+    });
+    
+    // Single winner
+    if (highestBidders.length === 1) {
+      const winner = game.players.find(p => p.id === highestBidders[0]);
+      
+      // Winner pays their bid amount
+      winner.money -= highestBid;
+      game.actualPayments[winner.id] = highestBid;
+      
+      winner.roundsWon += 1; // Full win
+      console.log(`Player ${winner.name} won round ${game.currentRound} with bet of ${highestBid}, pays ${highestBid}`);
+    } 
+    // Multiple winners (tie)
+    else if (highestBidders.length > 1) {
+      highestBidders.forEach(winnerId => {
+        const winner = game.players.find(p => p.id === winnerId);
+        
+        // In case of a tie, each winner pays their full bid
+        winner.money -= highestBid;
+        game.actualPayments[winner.id] = highestBid;
+        
+        winner.roundsWon += fractionalWinAmount; // Fractional win
+        console.log(`Player ${winner.name} tied for win in round ${game.currentRound} with bet of ${highestBid}, gets ${fractionalWinAmount} wins, pays ${highestBid}`);
+      });
+    }
+  }
   else {
     // Vickrey mode: payment logic for winners
     game.players.forEach(player => {
