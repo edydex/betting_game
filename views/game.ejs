@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Fool's Prize: Room <%= game.id %></title>
+  <title>Betting Game: Room <%= game.id %></title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css">
   <link rel="stylesheet" href="/css/style.css">
   <style>
@@ -121,7 +121,7 @@
       <div class="col-md-8">
         <div class="card">
           <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-            <h3 class="mb-0">Fool's Prize: Room <%= game.id %></h3>
+            <h3 class="mb-0">Betting Game: Room <%= game.id %></h3>
             <div>
               <span class="badge <%= game.gameMode === 'vickrey' ? 'badge-vickrey' : 'badge-standard' %>">
                 <%= game.gameMode === 'vickrey' ? 'Vickrey Auction' : 'Standard Bidding' %>
@@ -238,7 +238,8 @@
               <li>The player who places the highest bid each round wins that round</li>
               <li>Only the winner pays, and they pay the second-highest bid amount</li>
               <li>If there's only one bid (everyone else bids 0), the winner pays their full bid</li>
-              <li>In case of a tie for highest bid, the win is split (both players receive a win)</li>
+              <li>In case of a tie for highest bid, the win is split (0.5 for two-way tie, 0.4 for three-way tie, etc.)</li>
+              <li>In a tie, all winners pay the third-highest bid amount</li>
             </ul>
           </div>
         <% } else { %>
@@ -250,6 +251,7 @@
               <li>Win 3 rounds to win the game</li>
               <li>The player who places the highest bet each round wins that round</li>
               <li>All players pay their full bid amount each round</li>
+              <li>In case of a tie for highest bid, the win is split (0.5 for two-way tie, 0.4 for three-way tie, etc.)</li>
               <li>If no player reaches 3 wins, the player with the most wins (and most money in case of a tie) wins the game</li>
             </ul>
           </div>
@@ -264,6 +266,7 @@
               <li>Win 3 rounds to win the game</li>
               <li>The player who places the highest bet each round wins that round</li>
               <li>All players pay their full bid amount each round</li>
+              <li>In case of a tie for highest bid, the win is split (0.5 for two-way tie, 0.4 for three-way tie, etc.)</li>
               <li>If no player reaches 3 wins, the player with the most wins (and most money in case of a tie) wins the game</li>
             </ul>
           <% } else { %>
@@ -275,7 +278,8 @@
               <li>The player who places the highest bid each round wins that round</li>
               <li>Only the winner pays, and they pay the second-highest bid amount</li>
               <li>If there's only one bid (everyone else bids 0), the winner pays their full bid</li>
-              <li>In case of a tie for highest bid, the win is split (both players receive a win)</li>
+              <li>In case of a tie for highest bid, the win is split (0.5 for two-way tie, 0.4 for three-way tie, etc.)</li>
+              <li>In a tie, all winners pay the third-highest bid amount</li>
             </ul>
           <% } %>
         </div>

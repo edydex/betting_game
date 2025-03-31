@@ -551,8 +551,20 @@ function completeRound(game) {
   let secondHighestBid = bids.length > 1 ? bids.find(bid => bid.amount < highestBid)?.amount : undefined;
   game.secondHighestBid = secondHighestBid;
   
+  // Find third highest bid (for Vickrey ties)
+  let thirdHighestBid;
+  if (bids.length > 2 && highestBidders.length > 1) {
+    // When there's a tie for highest, we need to find the next highest after the tied players
+    const nonWinnerBids = bids.filter(bid => !highestBidders.includes(bid.playerId));
+    thirdHighestBid = nonWinnerBids.length > 0 ? nonWinnerBids[0].amount : undefined;
+  }
+  game.thirdHighestBid = thirdHighestBid;
+  
   // Store actual payments
   game.actualPayments = {};
+  
+  // Calculate fractional win amount based on number of winners
+  const fractionalWinAmount = getFractionalWinAmount(highestBidders.length);
   
   // Update player balances and determine winners based on game mode
   if (game.gameMode === 'standard') {
@@ -566,20 +578,20 @@ function completeRound(game) {
     // Single winner
     if (highestBidders.length === 1) {
       const winner = game.players.find(p => p.id === highestBidders[0]);
-      winner.roundsWon++;
+      winner.roundsWon += 1; // Full win
       console.log(`Player ${winner.name} won round ${game.currentRound} with bet of ${highestBid}`);
     } 
     // Multiple winners (tie)
     else if (highestBidders.length > 1) {
       highestBidders.forEach(winnerId => {
         const winner = game.players.find(p => p.id === winnerId);
-        winner.roundsWon++;
-        console.log(`Player ${winner.name} tied for win in round ${game.currentRound} with bet of ${highestBid}`);
+        winner.roundsWon += fractionalWinAmount; // Fractional win
+        console.log(`Player ${winner.name} tied for win in round ${game.currentRound} with bet of ${highestBid}, gets ${fractionalWinAmount} wins`);
       });
     }
   } 
   else {
-    // Vickrey mode: only winner pays the second highest bid
+    // Vickrey mode: payment logic for winners
     game.players.forEach(player => {
       // By default, no one pays anything
       game.actualPayments[player.id] = 0;
@@ -594,16 +606,23 @@ function completeRound(game) {
       winner.money -= payment;
       game.actualPayments[winner.id] = payment;
       
-      winner.roundsWon++;
+      winner.roundsWon += 1; // Full win
       console.log(`Player ${winner.name} won round ${game.currentRound} with bet of ${highestBid}, pays ${payment}`);
     } 
     // Multiple winners (tie)
     else if (highestBidders.length > 1) {
-      // In ties, all highest bidders win rounds but don't pay anything
+      // In ties, winners each get fractional win and pay the third highest bid amount
+      // If no third highest (everyone tied for highest or only 2 bids total),
+      // they pay the second highest bid amount
+      const payment = thirdHighestBid !== undefined ? thirdHighestBid : 
+                     (secondHighestBid !== undefined ? secondHighestBid : 0);
+      
       highestBidders.forEach(winnerId => {
         const winner = game.players.find(p => p.id === winnerId);
-        winner.roundsWon++;
-        console.log(`Player ${winner.name} tied for win in round ${game.currentRound} with bet of ${highestBid}, pays 0`);
+        winner.money -= payment;
+        game.actualPayments[winner.id] = payment;
+        winner.roundsWon += fractionalWinAmount; // Fractional win
+        console.log(`Player ${winner.name} tied for win in round ${game.currentRound} with bet of ${highestBid}, gets ${fractionalWinAmount} wins, pays ${payment}`);
       });
     }
   }
@@ -621,6 +640,18 @@ function completeRound(game) {
     
     // Determine the overall winner
     determineOverallWinner(game);
+  }
+}
+
+// Helper function to calculate fractional win amount based on number of winners
+function getFractionalWinAmount(numWinners) {
+  if (numWinners <= 1) return 1;  // Solo winner gets full point
+  
+  switch(numWinners) {
+    case 2: return 0.5;  // Two-way tie
+    case 3: return 0.4;  // Three-way tie
+    case 4: return 0.3;  // Four-way tie
+    default: return 0.2; // Five or more
   }
 }
 

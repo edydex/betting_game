@@ -62,7 +62,7 @@
       <div class="col-md-6">
         <div class="card">
           <div class="card-header bg-primary text-white">
-            <h1 class="text-center">Fool's Prize</h1>
+            <h1 class="text-center">Betting Game</h1>
           </div>
           <div class="card-body">
             <% if (error) { %>
@@ -86,7 +86,7 @@
                         <div class="form-check">
                           <input class="form-check-input" type="radio" name="gameMode" id="standardMode" value="standard" checked>
                           <label class="form-check-label" for="standardMode">
-                            Standard Bidding
+                            All-Pay Bidding
                           </label>
                         </div>
                         <div class="form-check">
@@ -140,7 +140,7 @@
         <button class="close-btn">&times;</button>
       </div>
       <div class="rules-body">
-        <h5>Standard Bidding Mode:</h5>
+        <h5>All-Pay Bidding Mode:</h5>
         <ul>
           <li>Each player starts with $100</li>
           <li>There are 5 rounds in total</li>
@@ -158,7 +158,7 @@
           <li>The player who places the highest bid each round wins that round</li>
           <li>Only the winner pays, and they pay the second-highest bid amount</li>
           <li>If there's only one bid (everyone else bids 0), the winner pays their full bid</li>
-          <li>In case of a tie for highest bid, the win is split (both players receive a win)</li>
+          <li>In case of a tie for highest bid, the win is split (both players receive a fraction of a win)</li>
         </ul>
       </div>
     </div>
