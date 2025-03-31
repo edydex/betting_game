@@ -1,7 +1,7 @@
 {
   "name": "azure-betting-game",
   "version": "1.0.0",
-  "description": "A simple betting game for Azure App Service",
+  "description": "A simple Bidding Game running on Azure App Service",
   "main": "app.js",
   "scripts": {
     "start": "node app.js",

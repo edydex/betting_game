@@ -715,7 +715,7 @@ function generatePlayerId() {
 }
 
 app.listen(port, () => {
-  console.log(`Betting game app listening at http://localhost:${port}`);
+  console.log(`Bidding Game app listening at http://localhost:${port}`);
 });
 
 // Clean up inactive games (in a real app, you'd use a more robust cleanup mechanism)
